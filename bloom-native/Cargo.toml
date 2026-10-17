@@ -1,0 +1,37 @@
+[package]
+name = "bloom-native"
+version = "4.0.0-alpha.1"
+edition = "2021"
+license = "GPL-3.0-only"
+
+[dependencies]
+# No WebView, no Tauri, no JavaScript. Slint draws everything natively.
+slint = { version = "1.9", default-features = false, features = [
+    "std",
+    "backend-winit",
+    "renderer-femtovg",
+    "compat-1-2",
+    "raw-window-handle-06",
+] }
+raw-window-handle = "0.6"
+windows = { version = "0.61", features = [
+    "Foundation",
+    "Media_Control",
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Com",
+    "Win32_System_Power",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[build-dependencies]
+slint-build = "1.9"
+
+[profile.release]
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true

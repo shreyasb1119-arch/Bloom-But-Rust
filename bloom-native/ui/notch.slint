@@ -1,0 +1,136 @@
+// Bloom notch, drawn natively by Slint. This replaces the React notch.
+
+component Ctl inherits Rectangle {
+    in property <string> glyph;
+    out property <bool> hovered: ta.has-hover;
+    callback clicked();
+
+    width: 44px;
+    height: 32px;
+    border-radius: 16px;
+    background: ta.pressed ? #4a4a4a : ta.has-hover ? #2c2c2c : transparent;
+    animate background { duration: 120ms; }
+
+    Text {
+        text: root.glyph;
+        color: white;
+        font-size: 14px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    ta := TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+export component Notch inherits Window {
+    no-frame: true;
+    always-on-top: true;
+    background: transparent;
+    title: "Bloom";
+
+    in property <string> track-title: "Nothing playing";
+    in property <string> track-artist;
+    in property <bool> playing;
+    in property <int> cpu;
+    in property <int> ram;
+    in property <int> battery: 100;
+    in property <bool> charging;
+    in-out property <bool> expanded;
+
+    callback play-pause();
+    callback next();
+    callback previous();
+    callback expanded-changed(bool);
+    callback quit();
+
+    changed expanded => { root.expanded-changed(root.expanded); }
+
+    pill := Rectangle {
+        // Hover is the OR of the background and every button, so moving the
+        // pointer from the pill onto a button never collapses it.
+        property <bool> any-hover: bg.has-hover || prev.hovered || toggle.hovered || next.hovered;
+        changed any-hover => { root.expanded = self.any-hover; }
+
+        x: (parent.width - self.width) / 2;
+        y: 0px;
+        width: root.expanded ? 400px : 180px;
+        height: root.expanded ? 150px : 32px;
+        background: #000000;
+        border-bottom-left-radius: root.expanded ? 28px : 16px;
+        border-bottom-right-radius: root.expanded ? 28px : 16px;
+        clip: true;
+        animate width { duration: 220ms; easing: ease-out-quart; }
+        animate height { duration: 220ms; easing: ease-out-quart; }
+        animate border-bottom-left-radius { duration: 220ms; easing: ease-out-quart; }
+        animate border-bottom-right-radius { duration: 220ms; easing: ease-out-quart; }
+
+        bg := TouchArea {
+            pointer-event(e) => {
+                if (e.button == PointerEventButton.right && e.kind == PointerEventKind.up) {
+                    root.quit();
+                }
+            }
+        }
+
+        // Collapsed: just the current track, if anything is playing.
+        Text {
+            text: root.playing ? root.track-title : "";
+            color: #dddddd;
+            font-size: 12px;
+            overflow: elide;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            x: 14px;
+            width: parent.width - 28px;
+            height: 32px;
+            opacity: root.expanded ? 0 : 1;
+            animate opacity { duration: 150ms; }
+        }
+
+        // Expanded: fixed-size content so nothing reflows mid-animation.
+        VerticalLayout {
+            x: (parent.width - 400px) / 2;
+            y: 0px;
+            width: 400px;
+            height: 150px;
+            padding: 16px;
+            spacing: 4px;
+            opacity: root.expanded ? 1 : 0;
+            animate opacity { duration: 180ms; }
+
+            Text {
+                text: root.track-title;
+                color: white;
+                font-size: 16px;
+                font-weight: 700;
+                overflow: elide;
+            }
+            Text {
+                text: root.track-artist;
+                color: #9a9a9a;
+                font-size: 12px;
+                overflow: elide;
+            }
+            HorizontalLayout {
+                alignment: center;
+                spacing: 20px;
+                padding-top: 6px;
+                prev := Ctl { glyph: "◀◀"; clicked => { root.previous(); } }
+                toggle := Ctl { glyph: root.playing ? "❚❚" : "▶"; clicked => { root.play-pause(); } }
+                next := Ctl { glyph: "▶▶"; clicked => { root.next(); } }
+            }
+            HorizontalLayout {
+                alignment: space-around;
+                padding-top: 6px;
+                Text { text: "CPU \{root.cpu}%"; color: #bdbdbd; font-size: 12px; }
+                Text { text: "RAM \{root.ram}%"; color: #bdbdbd; font-size: 12px; }
+                Text {
+                    text: (root.charging ? "Charging " : "Battery ") + root.battery + "%";
+                    color: root.charging ? #7be08a : root.battery <= 20 ? #ff6b6b : #bdbdbd;
+                    font-size: 12px;
+                }
+            }
+        }
+    }
+}

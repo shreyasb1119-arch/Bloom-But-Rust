@@ -1,0 +1,45 @@
+name: Build Nim prototype
+
+# Manual build: Actions tab -> "Build Nim prototype" -> Run workflow.
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+
+      - name: Build the Rust backend DLL
+        run: cargo build --release --manifest-path backend/Cargo.toml
+
+      - uses: jiro4989/setup-nim-action@v2
+        with:
+          nim-version: stable
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Nim libraries
+        run: nimble install -y windy boxy pixie
+
+      - name: Build the Nim UI
+        shell: bash
+        run: nim c -d:release --app:gui --opt:size -o:bloom-ui.exe ui/bloom_ui.nim
+
+      - name: Collect files
+        shell: bash
+        run: |
+          mkdir dist
+          cp bloom-ui.exe dist/
+          cp backend/target/release/bloom_backend.dll dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bloom-nim
+          path: dist/

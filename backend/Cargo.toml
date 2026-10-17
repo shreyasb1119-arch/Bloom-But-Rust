@@ -1,0 +1,15 @@
+[package]
+name = "bloom-backend"
+version = "0.1.0"
+edition = "2021"
+description = "Bloom's Rust backend as a DLL, called by the Nim UI"
+
+[lib]
+name = "bloom_backend"
+crate-type = ["cdylib"]
+
+[profile.release]
+opt-level = "s"
+lto = "thin"
+codegen-units = 1
+strip = true
