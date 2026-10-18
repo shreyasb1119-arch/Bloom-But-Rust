@@ -1,0 +1,87 @@
+name: Build React Native Windows preview
+
+# Manual build: Actions tab -> "Build React Native Windows preview" -> Run workflow.
+# Three jobs: the Rust backend, a quick TypeScript check, and the Windows app.
+on:
+  workflow_dispatch:
+
+jobs:
+  backend:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - name: Build bloom-backend.exe
+        run: cargo build --release --manifest-path backend/Cargo.toml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bloom-backend
+          path: backend/target/release/bloom-backend.exe
+
+  js-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Type-check the TypeScript
+        working-directory: rnw
+        run: |
+          npm install --legacy-peer-deps
+          npx tsc --noEmit
+
+  app:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Create the React Native Windows project
+        shell: pwsh
+        env:
+          CI: "true"
+        run: |
+          npx --yes @react-native-community/cli@latest init BloomRN --version 0.74.7 --skip-git-init --skip-install
+          Set-Location BloomRN
+          npm install --legacy-peer-deps
+          npx --yes react-native-windows-init --overwrite --language cpp --no-telemetry
+
+      - name: Copy the Bloom UI in
+        shell: pwsh
+        run: |
+          Copy-Item rnw/App.tsx BloomRN/App.tsx -Force
+          Copy-Item rnw/src BloomRN/src -Recurse -Force
+
+      - name: Build the app
+        shell: pwsh
+        working-directory: BloomRN
+        run: npx react-native run-windows --release --no-launch --no-deploy --arch x64 --logging
+
+      - name: Collect the app files
+        shell: pwsh
+        run: |
+          $manifest = Get-ChildItem BloomRN/windows -Recurse -Filter AppxManifest.xml |
+            Where-Object { $_.FullName -match "Release" -and $_.FullName -match "AppX" } |
+            Select-Object -First 1
+          if (-not $manifest) {
+            Get-ChildItem BloomRN/windows -Recurse -Filter AppxManifest.xml | Select-Object FullName
+            throw "No AppX layout found"
+          }
+          New-Item -ItemType Directory dist | Out-Null
+          Copy-Item $manifest.Directory.FullName dist/app -Recurse
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bloom-rnw
+          path: dist/

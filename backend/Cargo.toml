@@ -1,12 +1,15 @@
 [package]
 name = "bloom-backend"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "Bloom's Rust backend as a DLL, called by the Nim UI"
+description = "Bloom's Rust backend: a small local service that the React Native Windows UI talks to"
 
-[lib]
-name = "bloom_backend"
-crate-type = ["cdylib"]
+[[bin]]
+name = "bloom-backend"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = "1"
 
 [profile.release]
 opt-level = "s"
